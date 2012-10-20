@@ -1,0 +1,80 @@
+﻿<html>
+<head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
+    <script src="http://remote-tilt.com/js/device-motion-polyfill.js"></script>
+    <script src="js/socket.io.js" type="text/javascript"></script>
+    <script src="js/jcanvas.min.js" type="text/javascript"></script>
+    
+    <script>
+        $(function () {
+            var iosocket = io.connect();
+            var alphaOffset = 0;
+
+            iosocket.on('connect', function () {
+                $('#incomingChatMessages').append($('<li>Connected</li>'));
+
+                iosocket.on('point', function (point) {
+                    var x = 500 / 2 + (180 - point.alpha)*(500/(2*30));
+                    var y = 300 - point.beta * (300 / 45);
+                    if (x < 0) x = 0;
+                    if (x > 490) x = 490;
+                    if (y < 0) y = 0;
+                    if (x > 290) y = 290;
+
+                    console.log('alpha:', point.alpha, ' x: ', x, ' y:', y);
+                    $("#myCanvas").clearCanvas();
+                    $('#myCanvas').drawRect({ fillStyle: "#000", x: x, y: y, width: 10, height: 10, fromCenter: false });
+
+                    //document.body.style.backgroundColor = "rgb( " + Math.abs(message.alpha) + ", " + Math.abs(message.beta) + ", " + Math.abs(message.gamma) + " )";
+                    
+                });
+                iosocket.on('message', function (message) {
+                    document.body.style.backgroundColor = "rgb( " + Math.abs(message.alpha) + ", " + Math.abs(message.beta) + ", " + Math.abs(message.gamma) + " )";
+                    $('#incomingChatMessages').append($('<li></li>').text(message));
+
+                });
+
+                iosocket.on('disconnect', function () {
+                    $('#incomingChatMessages').append('<li>Disconnected</li>');
+                });
+            });
+
+            $('#outgoingChatMessage').keypress(function (event) {
+                if (event.which == 13) {
+                    event.preventDefault();
+                    iosocket.emit("message", $('#outgoingChatMessage').val());
+                    $('#incomingChatMessages').append($('<li></li>').text($('#outgoingChatMessage').val()));
+                    $('#outgoingChatMessage').val('');
+                }
+            });
+            window.addEventListener('deviceorientation', update, true);
+
+            function update(event) {
+                if ($('#isTableau').is(':checked')) {
+                    event.preventDefault();
+                    var temp = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
+                    iosocket.emit("point", temp);
+                    var message = document.querySelector('#tilt');
+                    message.innerHTML = "Alpha is:" + event.alpha + ", Beta is:" + event.beta + ", and Gamma is:" + event.gamma + "";
+                } else {
+                    //calibrating:
+                    alphaOffset = event.alpha - 180;
+                }
+            }
+        });
+            
+    </script>   
+
+</head>
+<body>
+<input type="checkbox" id="isTableau" /> Pen enabled<br />
+<div id="tilt"></div>
+<canvas id="myCanvas" width="500" height="300"
+style="border:1px solid #000000;">
+</canvas>
+<br />Incoming Chat:&nbsp;<ul id="incomingChatMessages"></ul>
+
+
+Type:<input type="text" id="outgoingChatMessage">
+</body>
+</html>
